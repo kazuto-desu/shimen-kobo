@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>紙面工房</title>
+<meta name="description" content="社報・フライヤー・お知らせを A4 で簡単に作れる紙面エディター">
+<meta name="theme-color" content="#1f3a6b">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Mochiy+Pop+One&family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<style>
+/* Layout: editing desk — control rail on the left, a true-size A4 sheet scaled to fit on a grey work surface */
+:root{
+  --desk:#e4e6e9; --panel:#f7f8f9; --line:#d3d8de; --ink:#1c2330; --mute:#5d6878;
+  --accent:#1f3a6b; --accent-ink:#ffffff; --accent-soft:#e3e9f3; --warn:#a8431c; --warn-soft:#fbe9e1; --ok:#2d6a4a; --ok-soft:#e2f0e7;
+  --ui:'Zen Kaku Gothic New','Hiragino Sans','Yu Gothic UI',sans-serif;
+  --logo:'Shippori Mincho B1','Yu Mincho',serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --desk:#15181d; --panel:#1e232a; --line:#2e3540; --ink:#e5e9ef; --mute:#9aa4b3;
+  --accent:#9db8e8; --accent-ink:#0e1522; --accent-soft:#25324a; --warn:#f2a07c; --warn-soft:#3a251c; --ok:#8fd0a8; --ok-soft:#1d3226; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --desk:#15181d; --panel:#1e232a; --line:#2e3540; --ink:#e5e9ef; --mute:#9aa4b3;
+  --accent:#9db8e8; --accent-ink:#0e1522; --accent-soft:#25324a; --warn:#f2a07c; --warn-soft:#3a251c; --ok:#8fd0a8; --ok-soft:#1d3226; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+img{max-width:100%}
+html,body{height:100%}
+body{margin:0;-webkit-font-smoothing:antialiased;background:var(--desk);color:var(--ink);font-family:var(--ui);font-size:14px}
+button{font:inherit;color:inherit}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{height:100%;display:grid;grid-template-rows:auto 1fr}
+.bar{display:flex;align-items:center;gap:16px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.logo{width:34px;height:34px;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);font-family:var(--logo);font-weight:800;font-size:19px;border-radius:4px}
+.brand b{font-family:var(--logo);font-weight:800;font-size:18px;display:block;line-height:1.2}
+.brand small{color:var(--mute);font-size:12px}
+.badge{font-size:12.5px;padding:5px 10px;border-radius:999px;font-weight:500;white-space:nowrap}
+.badge.ok{background:var(--ok-soft);color:var(--ok)}
+.badge.warn{background:var(--warn-soft);color:var(--warn)}
+.bar-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--panel);padding:7px 14px;border-radius:6px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--mute)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:var(--warn)}
+
+.main{display:grid;grid-template-columns:304px 1fr;min-height:0}
+.side{background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding:4px 16px 24px}
+.grp{padding-block:16px;border-bottom:1px solid var(--line);display:grid;gap:10px}
+.grp:last-child{border-bottom:0}
+.grp h2{margin:0;font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--mute)}
+
+.tpl-list{display:grid;gap:8px}
+.tpl{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:center;text-align:left;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:transparent;cursor:pointer}
+.tpl[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.tpl svg{width:44px;height:58px;display:block}
+.tpl b{display:block;font-size:14px}
+.tpl span{font-size:12px;color:var(--mute);line-height:1.5}
+
+.swatches{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.sw{min-width:0;border:1px solid var(--line);border-radius:8px;background:transparent;padding:7px 2px 5px;cursor:pointer;display:grid;justify-items:center;gap:4px;font-size:12px}
+.sw i{display:flex;width:30px;height:16px;border-radius:3px;overflow:hidden}
+.sw i::before,.sw i::after{content:"";flex:1}
+.sw i::before{background:var(--a)}
+.sw i::after{background:var(--b);flex:.45}
+.sw[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.custom{display:flex;gap:14px;font-size:12.5px;color:var(--mute)}
+.custom label{display:flex;align-items:center;gap:6px}
+.custom input{width:34px;height:26px;padding:0;border:1px solid var(--line);border-radius:4px;background:none;cursor:pointer}
+
+.fonts{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ft{border:1px solid var(--line);border-radius:8px;background:transparent;padding:8px 10px;cursor:pointer;text-align:left}
+.ft b{display:block;font-size:19px;line-height:1.3;font-weight:var(--w)}
+.ft span{font-size:11.5px;color:var(--mute)}
+.ft[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+
+#selPanel{display:grid;gap:10px}
+.hint{margin:0;font-size:12.5px;color:var(--mute);line-height:1.7}
+.tool-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lbl{width:52px;font-size:12px;color:var(--mute)}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button,.seg output{border:0;background:transparent;padding:5px 10px;font-size:13px;cursor:pointer}
+.seg button+button,.seg output,.seg output+button{border-left:1px solid var(--line)}
+.seg button:hover,.seg button[aria-pressed="true"]{background:var(--accent-soft)}
+.seg button[aria-pressed="true"]{color:var(--accent);font-weight:700}
+.seg output{cursor:default;min-width:48px;text-align:center;font-variant-numeric:tabular-nums}
+.seg .danger{color:var(--warn)}
+.seg button:disabled{opacity:.4;cursor:default}
+.tb{border:1px solid var(--line);background:transparent;border-radius:6px;padding:5px 11px;cursor:pointer;font-weight:700}
+.colors{display:flex;gap:6px}
+.cl{width:26px;height:26px;border-radius:50%;border:1px solid var(--line);cursor:pointer;background:var(--c);position:relative}
+.cl.def{background:linear-gradient(135deg,#fff 46%,#c33 47%,#c33 53%,#fff 54%)}
+.addRow{display:flex;gap:6px;flex-wrap:wrap}
+.addRow .btn{font-size:13px;padding:6px 10px}
+.export{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.export .btn{padding:9px 8px}
+.export .wide{grid-column:1/-1}
+.note{font-size:12px;color:var(--mute);margin:0;line-height:1.6}
+
+.desk{overflow:auto;padding:28px 24px 40px;display:flex;flex-direction:column;align-items:center;gap:14px;min-width:0}
+.desk-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;font-size:12.5px;color:var(--mute)}
+.stage{position:relative;flex-shrink:0}
+.stage-inner{transform-origin:top left;position:absolute;top:0;left:0}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--desk);padding:9px 16px;border-radius:8px;font-size:13px;z-index:30;max-width:calc(100% - 32px)}
+.modal{position:fixed;inset:0;background:rgba(10,14,20,.55);display:grid;place-items:center;padding:16px;z-index:40}
+.modal-card{background:var(--panel);color:var(--ink);border-radius:10px;padding:20px;max-width:520px;width:100%;max-height:calc(100% - 32px);overflow:auto;display:grid;gap:14px}
+.modal-card h3{margin:0;font-size:16px}
+.modal-card p{margin:0;font-size:13.5px;line-height:1.7;color:var(--mute)}
+.modal-card img{width:100%;border:1px solid var(--line)}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px}
+
+@media (max-width:860px){
+  .app{height:auto;min-height:100%}
+  .main{grid-template-columns:1fr}
+  .side{order:2;border-right:0;border-top:1px solid var(--line);overflow:visible}
+  .desk{order:1;overflow-x:auto;padding:16px 16px 24px}
+}
+@page{size:A4 portrait;margin:0}
+@media print{
+  html,body{height:auto;background:#fff}
+  .bar,.side,.desk-top,.toast,.modal{display:none!important}
+  .app,.main{display:block}
+  .desk{padding:0;overflow:visible;display:block}
+  .stage{width:auto!important;height:auto!important}
+  .stage-inner{position:static;transform:none!important}
+  .sheet{box-shadow:none;width:210mm;height:296.5mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .sheet [data-e]:hover,.sheet .sel{box-shadow:none!important}
+  .img-slot::after{display:none!important}
+  .img-slot.logo.empty{visibility:hidden}
+}
+@media (prefers-reduced-motion:no-preference){.tpl,.sw,.ft,.btn{transition:border-color .15s,background .15s}}
+
+/* ===== The printed sheet (always paper-white, independent of UI theme) ===== */
+.sheet{--p:#1f3a6b;--s:#c08a2e;--tint:#eef1f6;--tint2:#c7d0e0;--fh:serif;--fb:sans-serif;--fhw:800;--k:#1d1d1f;
+  width:794px;height:1123px;background:#ffffff;color:var(--k);font-family:var(--fb);font-size:13px;line-height:1.75;
+  position:relative;overflow:hidden;box-sizing:border-box;box-shadow:0 1px 2px rgba(0,0,0,.12),0 12px 32px rgba(0,0,0,.18);
+  display:flex;flex-direction:column}
+.sheet>*{flex-shrink:0}
+.sheet *{box-sizing:border-box}
+.sheet p{margin:0 0 .55em}
+.sheet ul{margin:0;padding-left:1.1em}
+.sheet [data-e]{outline:none;border-radius:2px;cursor:text}
+.sheet [data-e]:hover{box-shadow:0 0 0 1px rgba(59,111,209,.5)}
+.sheet .sel,.sheet .sel:hover{box-shadow:0 0 0 2px #3b6fd1}
+.img-slot{background:linear-gradient(135deg,var(--tint),var(--tint2));background-size:cover;background-position:center;position:relative;cursor:pointer}
+.img-slot.contain{background-size:contain;background-repeat:no-repeat}
+.img-slot.empty::after{content:"クリックして写真を選択";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:500 12px/1 'Zen Kaku Gothic New',sans-serif;color:#2b3340;background:rgba(255,255,255,.85);padding:7px 10px;border-radius:4px;white-space:nowrap}
+.img-slot.logo.empty::after{content:"ロゴ";padding:5px 7px}
+.exporting [data-e],.exporting [data-e]:hover{box-shadow:none!important}
+.exporting .img-slot::after{display:none!important}
+.exporting .img-slot.logo.empty{visibility:hidden}
+.H{font-family:var(--fh);font-weight:var(--fhw)}
+
+/* 社報 */
+.t-shaho{padding:42px 48px 32px;gap:20px}
+.t-shaho .mast-top{display:flex;justify-content:space-between;gap:12px;font-size:12px;font-weight:700;color:var(--p);letter-spacing:.06em;border-bottom:1px solid var(--p);padding-bottom:5px}
+.t-shaho .mast-title{font-size:86px;line-height:1.05;color:var(--p);margin:12px 0 2px;letter-spacing:.04em}
+.t-shaho .mast-sub{font-size:12px;color:#555;margin-bottom:10px}
+.t-shaho .rule{display:grid;gap:2px}
+.t-shaho .rule i{display:block;height:5px;background:var(--p)}
+.t-shaho .rule i+i{height:2px;background:var(--s)}
+.t-shaho .lead{display:grid;grid-template-columns:1.15fr 1fr;gap:24px;margin-top:-4px}
+.t-shaho .lead .img-slot{height:300px}
+.t-shaho .kicker{display:inline-block;background:var(--s);color:#fff;font-size:11px;font-weight:700;padding:2px 12px;letter-spacing:.2em}
+.t-shaho .lead h2{font-size:29px;line-height:1.35;margin:10px 0 10px}
+.t-shaho .lead p{font-size:13.5px}
+.t-shaho .cols{display:grid;grid-auto-flow:column;grid-auto-columns:1fr}
+.t-shaho .cols>article{padding:0 20px;border-left:1px solid #d6d6d6}
+.t-shaho .cols>article:first-child{padding-left:0;border-left:0}
+.t-shaho .cols>article:last-child{padding-right:0}
+.t-shaho .cat{font-size:11px;font-weight:700;color:var(--s);letter-spacing:.12em}
+.t-shaho h3{font-size:19px;line-height:1.4;color:var(--p);margin:2px 0 8px}
+.t-shaho .img-slot.sm{height:112px;margin-bottom:10px}
+.t-shaho .row3{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:14px}
+.t-shaho .box{background:var(--tint);padding:12px 16px 10px;font-size:12.5px;line-height:1.7}
+.t-shaho .box h4{margin:0 0 6px;padding-bottom:5px;border-bottom:1px solid var(--p);color:var(--p);font-size:14px}
+.t-shaho .box ul{list-style:none;padding:0}
+.t-shaho .foot{margin-top:auto;display:flex;justify-content:space-between;gap:16px;font-size:11px;color:#555;border-top:1px solid var(--p);padding-top:7px}
+
+/* フライヤー */
+.t-flyer .fl-hero{position:relative;height:500px}
+.t-flyer .fl-hero .img-slot{position:absolute;inset:0}
+.t-flyer .fl-hero .img-slot.empty{background:linear-gradient(135deg,var(--p),var(--s))}
+.t-flyer .fl-hero .img-slot.empty::after{top:28px;transform:translateX(-50%)}
+.t-flyer .fl-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 38%,rgba(0,0,0,.58) 100%);pointer-events:none}
+.t-flyer .fl-text{position:absolute;left:48px;right:48px;bottom:34px;color:#fff}
+.t-flyer .fl-no{display:inline-block;font-size:16px;font-weight:700;background:var(--s);color:#fff;padding:3px 14px;letter-spacing:.1em}
+.t-flyer .fl-title{font-size:78px;line-height:1.12;margin:12px 0 0;text-shadow:0 2px 14px rgba(0,0,0,.35)}
+.t-flyer .fl-tag{position:absolute;top:34px;right:40px;width:132px;height:132px;border-radius:50%;background:#ffffff;color:var(--p);display:flex;align-items:center;justify-content:center;text-align:center;font-size:27px;line-height:1.2;transform:rotate(-8deg);box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.t-flyer .fl-body{padding:28px 48px 0;display:flex;flex-direction:column;gap:20px}
+.t-flyer .fl-catch{font-size:20px;font-weight:700;line-height:1.6;margin:0}
+.t-flyer .fl-when{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;border-top:3px solid var(--p);border-bottom:3px solid var(--p);padding:12px 0 10px}
+.t-flyer .fl-date{font-size:58px;line-height:1;color:var(--p)}
+.t-flyer .fl-day{font-size:20px;font-weight:700;background:var(--p);color:#fff;padding:2px 10px}
+.t-flyer .fl-time{font-size:21px;font-weight:700}
+.t-flyer .fl-info{display:grid;grid-template-columns:1fr 1fr;gap:10px 28px}
+.t-flyer .fl-info>div{display:grid;grid-template-columns:70px 1fr;gap:10px;font-size:14px;border-bottom:1px solid #d9d9d9;padding-bottom:8px}
+.t-flyer .fl-info b{color:var(--p)}
+.t-flyer .fl-points{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:14px}
+.t-flyer .fl-points>div{background:var(--tint);border-top:4px solid var(--s);padding:12px 16px}
+.t-flyer .fl-points h4{margin:0 0 4px;font-size:18px;color:var(--p)}
+.t-flyer .fl-points p{margin:0;font-size:13px}
+.t-flyer .fl-foot{margin-top:auto;background:var(--p);color:#fff;padding:16px 48px;font-size:15px;font-weight:700;display:flex;justify-content:space-between;gap:16px}
+
+/* お知らせ */
+.t-notice{padding:72px 76px 46px}
+.t-notice .nt-band{position:absolute;top:0;left:0;right:0;display:grid;gap:3px}
+.t-notice .nt-band i{display:block;height:14px;background:var(--p)}
+.t-notice .nt-band i+i{height:3px;background:var(--s)}
+.t-notice .nt-kicker{text-align:center;font-size:14px;font-weight:700;letter-spacing:.4em;color:var(--s)}
+.t-notice .nt-title{text-align:center;font-size:44px;line-height:1.3;color:var(--p);margin:6px 0 26px;padding-bottom:18px;border-bottom:2px solid var(--p)}
+.t-notice .nt-meta{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:18px}
+.t-notice .nt-to{font-size:17px;font-weight:700}
+.t-notice .nt-date{font-size:14px}
+.t-notice .nt-body p{font-size:15px;line-height:2;text-indent:1em}
+.t-notice .nt-ki{text-align:center;font-size:16px;margin:12px 0 14px}
+.t-notice .nt-box{border:2px solid var(--p);background:var(--tint);padding:20px 24px;text-align:center}
+.t-notice .nt-box .l{font-size:14px;font-weight:700;color:var(--p);letter-spacing:.2em}
+.t-notice .nt-box .v{font-size:26px;line-height:1.5;margin:4px 0}
+.t-notice .nt-box .n{font-size:15px}
+.t-notice .nt-notes{margin-top:22px;font-size:14px;line-height:1.9}
+.t-notice .nt-notes h4{margin:0 0 4px;font-size:14px;color:var(--p)}
+.t-notice .nt-ijo{text-align:right;font-size:15px;margin-top:8px}
+.t-notice .nt-foot{margin-top:auto;display:flex;align-items:center;gap:16px;border-top:1px solid #cfcfcf;padding-top:16px}
+.t-notice .img-slot.logo{width:64px;height:64px;flex-shrink:0;background:#f3f3f3}
+.t-notice .nt-co{font-size:20px;line-height:1.4}
+.t-notice .nt-addr{font-size:13px;color:#444}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="bar">
+    <div class="brand"><span class="logo" aria-hidden="true">紙</span><div><b>紙面工房</b><small>社報・フライヤー・お知らせを A4 でつくる</small></div></div>
+    <span id="fitBadge" class="badge ok" role="status">A4 に収まっています</span>
+    <div class="bar-actions">
+      <button class="btn" id="undoBtn" disabled>元に戻す</button>
+      <button class="btn primary" id="pngTop">画像で保存</button>
+    </div>
+  </header>
+  <div class="main">
+    <aside class="side">
+      <section class="grp"><h2>1. 種類を選ぶ</h2><div class="tpl-list" id="tplList"></div></section>
+      <section class="grp"><h2>2. 色</h2><div class="swatches" id="themeList"></div>
+        <div class="custom"><label>メイン色 <input type="color" id="cP"></label><label>サブ色 <input type="color" id="cS"></label></div></section>
+      <section class="grp"><h2>3. 見出しの書体</h2><div class="fonts" id="fontList"></div></section>
+      <section class="grp"><h2>4. 編集</h2><div id="selPanel"></div><div class="addRow" id="addList"></div></section>
+      <section class="grp"><h2>5. 保存・書き出し</h2>
+        <div class="export">
+          <button class="btn primary" id="pngBtn">画像 (PNG)</button>
+          <button class="btn primary" id="pdfBtn">PDF</button>
+          <button class="btn wide" id="printBtn">印刷する</button>
+          <button class="btn" id="saveJson">作業ファイルを保存</button>
+          <button class="btn" id="openJson">作業ファイルを開く</button>
+          <button class="btn danger wide" id="resetBtn">この紙面を最初の状態に戻す</button>
+        </div>
+        <p class="note">編集内容はこのブラウザに自動保存されます。別のパソコンで続きを編集するときは「作業ファイルを保存」を使ってください。</p>
+      </section>
+    </aside>
+    <section class="desk" id="desk">
+      <div class="desk-top"><span>文字をクリックするとそのまま書き換えられます。写真の枠をクリックすると画像を選べます。</span>
+        <div class="seg" role="group" aria-label="表示倍率"><button id="zFit" aria-pressed="true">全体</button><button id="z100" aria-pressed="false">原寸</button></div></div>
+      <div class="stage" id="stage"><div class="stage-inner" id="stageInner"><div class="sheet" id="sheet"></div></div></div>
+    </section>
+  </div>
+</div>
+
+<input type="file" id="fileImg" accept="image/*" hidden>
+<input type="file" id="fileJson" accept=".json,application/json" hidden>
+<div class="modal" id="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <h3 id="mTitle"></h3><p id="mText"></p><div id="mBody"></div><div class="modal-actions" id="mActions"></div>
+</div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const sheet = $('#sheet'), stage = $('#stage'), inner = $('#stageInner'), desk = $('#desk');
+const W = 794, H = 1123;
+
+/* ---------- テンプレート ---------- */
+const IMG = '<div class="img-slot empty" data-img></div>';
+const TPL = {
+  shaho: {
+    name: '社報・社内報', desc: '題字・特集・記事・囲み欄のある定番レイアウト', file: '社報',
+    look: { theme: 'ai', font: 'seitan' },
+    mini: '<rect x="4" y="4" width="36" height="9" fill="currentColor"/><rect x="4" y="16" width="20" height="14" opacity=".35" fill="currentColor"/><rect x="26" y="16" width="14" height="3" fill="currentColor"/><rect x="26" y="21" width="14" height="2" opacity=".4" fill="currentColor"/><rect x="26" y="25" width="10" height="2" opacity=".4" fill="currentColor"/><rect x="4" y="34" width="17" height="10" opacity=".4" fill="currentColor"/><rect x="23" y="34" width="17" height="10" opacity=".4" fill="currentColor"/><rect x="4" y="47" width="11" height="7" opacity=".2" fill="currentColor"/><rect x="17" y="47" width="11" height="7" opacity=".2" fill="currentColor"/><rect x="30" y="47" width="10" height="7" opacity=".2" fill="currentColor"/>',
+    html: `
+<header>
+  <div class="mast-top"><span data-e>〇〇株式会社 社内報</span><span data-e>2026年10月号 ・ 第42号</span></div>
+  <h1 class="mast-title H" data-e>みらい通信</h1>
+  <div class="mast-sub" data-e>MIRAI TSUSHIN ── 社員がつくる、社員のための情報誌</div>
+  <div class="rule"><i></i><i></i></div>
+</header>
+<section class="lead">
+  ${IMG}
+  <div>
+    <span class="kicker" data-e>特集</span>
+    <h2 class="H" data-e>新オフィス、<br>本格始動。</h2>
+    <div data-e><p>9月14日、本社機能を駅前の新オフィスへ移転しました。フリーアドレス席と集中ブースを新設し、部署をまたいだ打ち合わせがぐっと身近になっています。</p><p>「目指したのは、立ち話から仕事が生まれる場所です」と話すのは、移転を担当した総務部の田中さん。1階のカフェスペースは来客対応にも使えます。予約方法は社内ポータルをご覧ください。</p></div>
+  </div>
+</section>
+<div class="cols">
+  <article data-block>
+    <div class="cat" data-e>部署紹介</div>
+    <h3 class="H" data-e>製造二課 ── 1日3,000個を支えるチーム</h3>
+    <div class="img-slot empty sm" data-img></div>
+    <div data-e><p>今年度から夜勤シフトを見直し、不良率を前年比で18%削減しました。</p></div>
+  </article>
+  <article data-block>
+    <div class="cat" data-e>安全衛生</div>
+    <h3 class="H" data-e>秋の交通安全運動が始まります</h3>
+    <div data-e><p>日没が早くなるこの季節は、夕方の事故が増える時期です。通勤時はライトの早めの点灯と、交差点での一時停止を徹底しましょう。</p><p>10月中は各拠点の出入口で反射材を配布しています。自転車通勤の方はぜひお受け取りください。違反ゼロを目標に、全社で取り組みます。</p></div>
+  </article>
+</div>
+<div class="row3">
+  <div class="box" data-block><h4 class="H" data-e>今月の誕生日</h4><ul data-e><li>10/3　佐藤 健一（営業部）</li><li>10/11　山本 さくら（経理部）</li><li>10/19　高橋 誠（製造二課）</li><li>10/27　伊藤 美咲（総務部）</li></ul></div>
+  <div class="box" data-block><h4 class="H" data-e>新しい仲間</h4><div data-e><p>10月1日付で2名が入社しました。営業部に配属の中村さんは前職で物流を担当。製造一課の小林さんは趣味の釣りの話が尽きません。</p></div></div>
+  <div class="box" data-block><h4 class="H" data-e>10月の予定</h4><ul data-e><li>10/9（金）安全衛生委員会</li><li>10/16（金）全社会議</li><li>10/24（土）地域清掃ボランティア</li><li>10/30（金）月次締め</li></ul></div>
+</div>
+<footer class="foot"><span data-e>発行：総務部 広報チーム　｜　投稿・ご意見は内線 210 まで</span><span data-e>社外秘</span></footer>`,
+    add: [
+      { label: '＋ 記事', target: '.cols', html: `<article data-block><div class="cat" data-e>カテゴリー</div><h3 class="H" data-e>記事の見出し</h3><div data-e><p>ここに本文を入力します。</p></div></article>` },
+      { label: '＋ 囲み欄', target: '.row3', html: `<div class="box" data-block><h4 class="H" data-e>囲み欄の見出し</h4><div data-e><p>短いお知らせを入力します。</p></div></div>` }
+    ]
+  },
+  flyer: {
+    name: 'イベントフライヤー', desc: '大きな写真と日時が目を引くチラシ', file: 'フライヤー',
+    look: { theme: 'kaki', font: 'tsuyoi' },
+    mini: '<rect x="4" y="4" width="36" height="24" fill="currentColor" opacity=".55"/><circle cx="34" cy="10" r="4" fill="currentColor"/><rect x="4" y="31" width="22" height="3" fill="currentColor"/><rect x="4" y="36" width="36" height="5" fill="currentColor" opacity=".3"/><rect x="4" y="44" width="11" height="6" opacity=".2" fill="currentColor"/><rect x="17" y="44" width="11" height="6" opacity=".2" fill="currentColor"/><rect x="30" y="44" width="10" height="6" opacity=".2" fill="currentColor"/><rect x="0" y="52" width="44" height="6" fill="currentColor"/>',
+    html: `
+<div class="fl-hero">
+  ${IMG}
+  <div class="fl-shade"></div>
+  <div class="fl-tag H" data-e>入場<br>無料</div>
+  <div class="fl-text">
+    <span class="fl-no" data-e>第8回</span>
+    <h1 class="fl-title H" data-e>秋の地域<br>ふれあい祭り</h1>
+  </div>
+</div>
+<div class="fl-body">
+  <p class="fl-catch" data-e>模擬店・ステージ・子ども縁日。家族みんなで楽しめる一日です。</p>
+  <div class="fl-when"><span class="fl-date H" data-e>2026.10.24</span><span class="fl-day" data-e>SAT</span><span class="fl-time" data-e>10:00 – 16:00（雨天決行）</span></div>
+  <div class="fl-info">
+    <div data-block><b data-e>会場</b><span data-e>みどり台中央公園 多目的広場</span></div>
+    <div data-block><b data-e>アクセス</b><span data-e>みどり台駅 東口から徒歩5分</span></div>
+    <div data-block><b data-e>主催</b><span data-e>みどり台まつり実行委員会</span></div>
+    <div data-block><b data-e>協賛</b><span data-e>〇〇株式会社 ほか地元企業</span></div>
+  </div>
+  <div class="fl-points">
+    <div data-block><h4 class="H" data-e>グルメ屋台</h4><p data-e>地元のお店が20店以上出店します。</p></div>
+    <div data-block><h4 class="H" data-e>ステージ</h4><p data-e>和太鼓・吹奏楽・キッズダンス。</p></div>
+    <div data-block><h4 class="H" data-e>子ども縁日</h4><p data-e>輪投げやスーパーボールすくい。</p></div>
+  </div>
+</div>
+<div class="fl-foot"><span data-e>お問い合わせ　みどり台まつり実行委員会</span><span data-e>TEL 000-000-0000（平日 9:00–17:00）</span></div>`,
+    add: [
+      { label: '＋ 情報行', target: '.fl-info', html: `<div data-block><b data-e>項目</b><span data-e>内容を入力します</span></div>` },
+      { label: '＋ 見どころ', target: '.fl-points', html: `<div data-block><h4 class="H" data-e>見どころ</h4><p data-e>説明を入力します。</p></div>` }
+    ]
+  },
+  notice: {
+    name: 'お知らせ・掲示', desc: '休業案内や社内掲示に使える文書形式', file: 'お知らせ',
+    look: { theme: 'ai', font: 'seitan' },
+    mini: '<rect x="0" y="0" width="44" height="4" fill="currentColor"/><rect x="12" y="9" width="20" height="5" fill="currentColor"/><rect x="4" y="17" width="36" height="1" fill="currentColor"/><rect x="4" y="21" width="36" height="2" opacity=".35" fill="currentColor"/><rect x="4" y="25" width="36" height="2" opacity=".35" fill="currentColor"/><rect x="4" y="29" width="28" height="2" opacity=".35" fill="currentColor"/><rect x="8" y="34" width="28" height="9" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="4" y="50" width="6" height="6" opacity=".3" fill="currentColor"/><rect x="12" y="51" width="16" height="2" fill="currentColor"/>',
+    html: `
+<div class="nt-band"><i></i><i></i></div>
+<div class="nt-kicker" data-e>お知らせ</div>
+<h1 class="nt-title H" data-e>年末年始休業のお知らせ</h1>
+<div class="nt-meta"><span class="nt-to" data-e>お客様各位</span><span class="nt-date" data-e>2026年12月1日</span></div>
+<div class="nt-body">
+  <p data-e data-block>平素より格別のお引き立てを賜り、厚く御礼申し上げます。</p>
+  <p data-e data-block>誠に勝手ながら、弊社では下記の期間を年末年始休業とさせていただきます。期間中はご不便をおかけいたしますが、何卒ご了承くださいますようお願い申し上げます。</p>
+</div>
+<div class="nt-ki" data-e>記</div>
+<div class="nt-box">
+  <div class="l" data-e>休業期間</div>
+  <div class="v H" data-e>2026年12月28日（月）〜 2027年1月4日（月）</div>
+  <div class="n" data-e>1月5日（火）より通常どおり営業いたします。</div>
+</div>
+<div class="nt-notes"><h4 data-e>ご注意</h4><ul data-e><li>休業期間中のお問い合わせには、1月5日以降に順次お返事いたします。</li><li>オンラインショップのご注文は受け付けておりますが、発送は1月6日以降となります。</li></ul></div>
+<div class="nt-ijo" data-e>以上</div>
+<div class="nt-foot"><div class="img-slot logo contain empty" data-img></div><div><div class="nt-co H" data-e>〇〇株式会社</div><div class="nt-addr" data-e>〒000-0000 〇〇県〇〇市〇〇町1-2-3　TEL 000-000-0000</div></div></div>`,
+    add: [
+      { label: '＋ 段落', target: '.nt-body', html: `<p data-e data-block>ここに文章を入力します。</p>` }
+    ]
+  }
+};
+const THEMES = {
+  ai: { name: '藍', p: '#1f3a6b', s: '#c08a2e' },
+  take: { name: '若竹', p: '#2e6a4e', s: '#d9822b' },
+  kaki: { name: '柿', p: '#b5452a', s: '#28406b' },
+  sakura: { name: '桜', p: '#a83f61', s: '#3d6a8c' },
+  sumi: { name: '墨', p: '#222222', s: '#c4372c' }
+};
+const FONTS = {
+  seitan: { name: '端正', note: '明朝体', fh: "'Shippori Mincho B1','Yu Mincho',serif", w: 800 },
+  tsuyoi: { name: '力強い', note: '極太ゴシック', fh: "'Dela Gothic One','Hiragino Sans',sans-serif", w: 400 },
+  yawara: { name: 'やわらか', note: '丸ゴシック', fh: "'Zen Maru Gothic','Hiragino Maru Gothic ProN',sans-serif", w: 900 },
+  pop: { name: 'ポップ', note: '手書き風', fh: "'Mochiy Pop One','Hiragino Maru Gothic ProN',sans-serif", w: 400 }
+};
+const BODY_FONT = "'Zen Kaku Gothic New','Hiragino Sans','Yu Gothic',sans-serif";
+
+/* ---------- 状態 ---------- */
+const KEY = 'shimen-kobo:v1';
+let S = { tpl: 'shaho', docs: {}, look: {} };
+try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(S, JSON.parse(raw)); } catch (e) {}
+if (!TPL[S.tpl]) S.tpl = 'shaho';
+for (const k in TPL) if (!S.look[k]) S.look[k] = lookFrom(TPL[k].look.theme, TPL[k].look.font);
+function lookFrom(theme, font) { return { theme, p: THEMES[theme].p, s: THEMES[theme].s, font }; }
+
+let cur = null, hist = [], lastHTML = '', lastPush = 0, persistT = 0, storageWarned = false;
+
+function persist() {
+  clearTimeout(persistT);
+  persistT = setTimeout(() => {
+    try { localStorage.setItem(KEY, JSON.stringify(S)); }
+    catch (e) { if (!storageWarned) { storageWarned = true; toast('写真が多いためブラウザに自動保存できません。「作業ファイルを保存」で保存してください。', 5000); } }
+  }, 400);
+}
+function cleanHTML() {
+  const c = sheet.cloneNode(true);
+  c.querySelectorAll('.sel').forEach(n => n.classList.remove('sel'));
+  c.querySelectorAll('[contenteditable]').forEach(n => n.removeAttribute('contenteditable'));
+  return c.innerHTML.trim();
+}
+function save() {
+  const html = cleanHTML();
+  S.docs[S.tpl] = html; lastHTML = html; persist(); checkFit();
+}
+function snapshot() { hist.push(lastHTML || cleanHTML()); if (hist.length > 40) hist.shift(); lastPush = Date.now(); $('#undoBtn').disabled = false; }
+
+/* ---------- 描画 ---------- */
+function render() {
+  const t = TPL[S.tpl];
+  sheet.className = 'sheet t-' + S.tpl;
+  sheet.innerHTML = S.docs[S.tpl] || t.html;
+  sheet.querySelectorAll('[data-e]').forEach(n => { n.contentEditable = 'true'; n.spellcheck = false; });
+  cur = null;
+  lastHTML = cleanHTML();
+  applyLook(); buildSide(); updateSel(); checkFit();
+}
+function mix(hex, to, r) {
+  const a = parseInt(hex.slice(1), 16), b = parseInt(to.slice(1), 16);
+  const ch = (x, y) => Math.round(x + (y - x) * r);
+  const n = [ch(a >> 16, b >> 16), ch((a >> 8) & 255, (b >> 8) & 255), ch(a & 255, b & 255)];
+  return '#' + n.map(v => v.toString(16).padStart(2, '0')).join('');
+}
+function applyLook() {
+  const L = S.look[S.tpl], f = FONTS[L.font] || FONTS.seitan;
+  const st = sheet.style;
+  st.setProperty('--p', L.p); st.setProperty('--s', L.s);
+  st.setProperty('--tint', mix(L.p, '#ffffff', .91)); st.setProperty('--tint2', mix(L.p, '#ffffff', .72));
+  st.setProperty('--fh', f.fh); st.setProperty('--fhw', f.w); st.setProperty('--fb', BODY_FONT);
+  $('#cP').value = L.p; $('#cS').value = L.s;
+}
+function buildSide() {
+  $('#tplList').innerHTML = Object.entries(TPL).map(([k, t]) =>
+    `<button class="tpl" data-tpl="${k}" aria-pressed="${k === S.tpl}"><svg viewBox="0 0 44 58" aria-hidden="true" style="color:var(--accent)"><rect x=".5" y=".5" width="43" height="57" fill="none" stroke="var(--line)"/>${t.mini}</svg><div><b>${t.name}</b><span>${t.desc}</span></div></button>`).join('');
+  const L = S.look[S.tpl];
+  $('#themeList').innerHTML = Object.entries(THEMES).map(([k, t]) =>
+    `<button class="sw" data-theme="${k}" aria-pressed="${L.theme === k}"><i style="--a:${t.p};--b:${t.s}"></i>${t.name}</button>`).join('');
+  $('#fontList').innerHTML = Object.entries(FONTS).map(([k, f]) =>
+    `<button class="ft" data-font="${k}" aria-pressed="${L.font === k}"><b style="font-family:${f.fh};--w:${f.w}">${f.name}</b><span>${f.note}</span></button>`).join('');
+  $('#addList').innerHTML = TPL[S.tpl].add.map((a, i) => `<button class="btn" data-add="${i}">${a.label}</button>`).join('');
+}
+function checkFit() {
+  const over = sheet.scrollHeight - sheet.clientHeight;
+  const b = $('#fitBadge');
+  if (over > 1) { b.className = 'badge warn'; b.textContent = `A4 から約 ${Math.ceil(over / 3.78)}mm はみ出しています`; }
+  else { b.className = 'badge ok'; b.textContent = 'A4 に収まっています'; }
+}
+
+/* ---------- 表示倍率 ---------- */
+let zoomFit = true;
+function fit() {
+  const avail = desk.clientWidth - 48;
+  const sc = zoomFit ? Math.min(1, Math.max(.3, avail / W)) : 1;
+  inner.style.transform = `scale(${sc})`;
+  stage.style.width = W * sc + 'px'; stage.style.height = H * sc + 'px';
+}
+new ResizeObserver(fit).observe(desk);
+$('#zFit').onclick = () => { zoomFit = true; $('#zFit').setAttribute('aria-pressed', 'true'); $('#z100').setAttribute('aria-pressed', 'false'); fit(); };
+$('#z100').onclick = () => { zoomFit = false; $('#z100').setAttribute('aria-pressed', 'true'); $('#zFit').setAttribute('aria-pressed', 'false'); fit(); };
+
+/* ---------- 選択と編集 ---------- */
+function select(el) {
+  if (cur && cur !== el) cur.classList.remove('sel');
+  cur = el; if (el) el.classList.add('sel');
+  updateSel();
+}
+const TEXT_COLORS = [['', '標準'], ['var(--p)', 'メイン色'], ['var(--s)', 'サブ色'], ['#1d1d1f', '黒'], ['#ffffff', '白']];
+function updateSel() {
+  const el = cur; let h = '';
+  if (!el) h = '<p class="hint">紙面の文字や写真をクリックすると、ここで文字の大きさ・色・揃えを変えたり、ブロックを並べ替えたりできます。</p>';
+  else if (el.matches('[data-img]')) {
+    h = `<div class="tool-row"><span class="lbl">写真</span><div class="seg"><button data-act="img-pick">写真を選ぶ</button><button data-act="img-fit">${el.classList.contains('contain') ? '枠いっぱいに' : '全体を表示'}</button><button data-act="img-clear" class="danger" ${el.classList.contains('empty') ? 'disabled' : ''}>外す</button></div></div>`;
+  } else {
+    const fs = Math.round(parseFloat(getComputedStyle(el).fontSize));
+    const L = S.look[S.tpl];
+    h = `<div class="tool-row"><span class="lbl">大きさ</span><div class="seg"><button data-act="fs-" aria-label="小さく">−</button><output>${fs}px</output><button data-act="fs+" aria-label="大きく">＋</button></div><button class="tb" data-act="bold" title="選んだ文字を太字に">B</button></div>
+    <div class="tool-row"><span class="lbl">色</span><div class="colors">${TEXT_COLORS.map(([v, n]) => {
+      const show = v === 'var(--p)' ? L.p : v === 'var(--s)' ? L.s : v;
+      return `<button class="cl${v ? '' : ' def'}" data-act="color" data-v="${v}" title="${n}" aria-label="${n}" style="--c:${show}"></button>`; }).join('')}</div></div>
+    <div class="tool-row"><span class="lbl">揃え</span><div class="seg"><button data-act="align" data-v="left">左</button><button data-act="align" data-v="center">中央</button><button data-act="align" data-v="right">右</button></div></div>`;
+  }
+  const blk = el && el.closest('[data-block]');
+  if (blk) {
+    const prev = blk.previousElementSibling, next = blk.nextElementSibling;
+    h += `<div class="tool-row"><span class="lbl">ブロック</span><div class="seg"><button data-act="up" ${prev ? '' : 'disabled'}>前へ</button><button data-act="down" ${next ? '' : 'disabled'}>後ろへ</button><button data-act="dup">複製</button><button data-act="del" class="danger">削除</button></div></div>`;
+  }
+  $('#selPanel').innerHTML = h;
+}
+sheet.addEventListener('click', e => {
+  const t = e.target.closest('[data-e]'), img = e.target.closest('[data-img]');
+  if (t) select(t);
+  else if (img) { select(img); if (img.classList.contains('empty')) pickImage(img); }
+  else select(null);
+});
+sheet.addEventListener('dblclick', e => { const img = e.target.closest('[data-img]'); if (img && !e.target.closest('[data-e]')) pickImage(img); });
+sheet.addEventListener('focusin', e => { const t = e.target.closest('[data-e]'); if (t && t !== cur) select(t); });
+desk.addEventListener('click', e => { if (!e.target.closest('.sheet') && !e.target.closest('button')) select(null); });
+sheet.addEventListener('input', () => {
+  if (Date.now() - lastPush > 1500) snapshot();
+  lastPush = Date.now(); save();
+});
+sheet.addEventListener('paste', e => {
+  e.preventDefault();
+  document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain'));
+});
+
+$('#selPanel').addEventListener('mousedown', e => { if (e.target.closest('button')) e.preventDefault(); });
+$('#selPanel').addEventListener('click', e => {
+  const b = e.target.closest('button[data-act]'); if (!b || !cur) return;
+  const act = b.dataset.act, blk = cur.closest('[data-block]');
+  if (act === 'img-pick') return pickImage(cur);
+  snapshot();
+  switch (act) {
+    case 'fs-': case 'fs+': {
+      const fs = parseFloat(getComputedStyle(cur).fontSize);
+      cur.style.fontSize = Math.max(8, Math.min(160, fs + (act === 'fs+' ? 2 : -2))) + 'px'; break;
+    }
+    case 'bold': {
+      const sel = getSelection();
+      if (sel.rangeCount && !sel.isCollapsed && cur.contains(sel.anchorNode)) document.execCommand('bold');
+      else cur.style.fontWeight = parseInt(getComputedStyle(cur).fontWeight) >= 600 ? '400' : '700';
+      break;
+    }
+    case 'color': cur.style.color = b.dataset.v; break;
+    case 'align': cur.style.textAlign = b.dataset.v; break;
+    case 'img-clear': cur.style.backgroundImage = ''; cur.classList.add('empty'); break;
+    case 'img-fit': cur.classList.toggle('contain'); break;
+    case 'up': if (blk.previousElementSibling) blk.parentNode.insertBefore(blk, blk.previousElementSibling); break;
+    case 'down': if (blk.nextElementSibling) blk.parentNode.insertBefore(blk.nextElementSibling, blk); break;
+    case 'dup': {
+      const c = blk.cloneNode(true); c.querySelectorAll('.sel').forEach(n => n.classList.remove('sel')); c.classList.remove('sel');
+      blk.after(c); break;
+    }
+    case 'del': blk.remove(); cur = null; break;
+  }
+  save(); updateSel();
+});
+$('#addList').addEventListener('click', e => {
+  const b = e.target.closest('[data-add]'); if (!b) return;
+  const a = TPL[S.tpl].add[+b.dataset.add], box = sheet.querySelector(a.target);
+  if (!box) return toast('追加する場所が見つかりません。「最初の状態に戻す」で枠を復元できます。');
+  snapshot();
+  const tmp = document.createElement('div'); tmp.innerHTML = a.html.trim();
+  const node = tmp.firstElementChild;
+  node.querySelectorAll('[data-e]').forEach(n => { n.contentEditable = 'true'; n.spellcheck = false; });
+  if (node.matches('[data-e]')) { node.contentEditable = 'true'; node.spellcheck = false; }
+  const blk = cur && cur.closest('[data-block]');
+  if (blk && blk.parentNode === box) blk.after(node); else box.appendChild(node);
+  save(); select(node.matches('[data-e]') ? node : node.querySelector('[data-e]'));
+  toast('追加しました。文字をクリックして書き換えてください。');
+});
+$('#undoBtn').onclick = () => {
+  if (!hist.length) return;
+  S.docs[S.tpl] = hist.pop(); persist(); render();
+  $('#undoBtn').disabled = !hist.length;
+};
+
+/* ---------- 種類・色・書体 ---------- */
+document.querySelector('.side').addEventListener('click', e => {
+  const t = e.target.closest('[data-tpl]'), th = e.target.closest('[data-theme]'), f = e.target.closest('[data-font]');
+  if (t && t.dataset.tpl !== S.tpl) { S.tpl = t.dataset.tpl; hist = []; $('#undoBtn').disabled = true; persist(); render(); }
+  if (th) { const L = S.look[S.tpl], T = THEMES[th.dataset.theme]; Object.assign(L, { theme: th.dataset.theme, p: T.p, s: T.s }); persist(); applyLook(); buildSide(); updateSel(); }
+  if (f) { S.look[S.tpl].font = f.dataset.font; persist(); applyLook(); buildSide(); updateSel(); requestAnimationFrame(checkFit); }
+});
+['cP', 'cS'].forEach(id => $('#' + id).addEventListener('input', e => {
+  const L = S.look[S.tpl]; L[id === 'cP' ? 'p' : 's'] = e.target.value; L.theme = 'custom';
+  applyLook(); persist();
+  document.querySelectorAll('#themeList .sw').forEach(s => s.setAttribute('aria-pressed', 'false'));
+}));
+document.fonts && document.fonts.ready.then(checkFit);
+
+/* ---------- 写真 ---------- */
+let imgTarget = null;
+function pickImage(el) { imgTarget = el; $('#fileImg').click(); }
+$('#fileImg').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f || !imgTarget) return;
+  try {
+    const url = await downscale(f, 1800);
+    snapshot();
+    imgTarget.style.backgroundImage = `url("${url}")`;
+    imgTarget.classList.remove('empty');
+    save(); select(imgTarget);
+  } catch (err) { toast('この画像は読み込めませんでした。JPEG か PNG の画像を選んでください。'); }
+});
+function downscale(file, max) {
+  return new Promise((res, rej) => {
+    const u = URL.createObjectURL(file), im = new Image();
+    im.onload = () => {
+      const r = Math.min(1, max / Math.max(im.width, im.height));
+      const c = document.createElement('canvas'); c.width = Math.round(im.width * r); c.height = Math.round(im.height * r);
+      c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(u);
+      res(file.type === 'image/png' ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', .86));
+    };
+    im.onerror = () => { URL.revokeObjectURL(u); rej(); };
+    im.src = u;
+  });
+}
+
+/* ---------- 書き出し ---------- */
+function stamp() { const d = new Date(); return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`; }
+async function renderCanvas() {
+  select(null);
+  if (document.fonts) await document.fonts.ready;
+  sheet.classList.add('exporting');
+  try { return await html2canvas(sheet, {
+    scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, scrollX: 0, scrollY: 0,
+    onclone: doc => {
+      doc.getElementById('stageInner').style.transform = 'none';
+      const s = doc.getElementById('sheet'); s.classList.add('exporting'); s.style.boxShadow = 'none';
+    }
+  }); } finally { sheet.classList.remove('exporting'); }
+}
+async function offer(filename, data) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  toast(`${filename} をダウンロードしました`);
+}
+async function exportAs(kind) {
+  const btns = ['#pngBtn', '#pdfBtn', '#pngTop'].map($);
+  btns.forEach(b => b.disabled = true);
+  toast('書き出し中です…', 20000);
+  try {
+    const cv = await renderCanvas();
+    const name = `${TPL[S.tpl].file}_${stamp()}`;
+    if (kind === 'png') {
+      const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+      hideToast(); await offer(name + '.png', blob);
+    } else {
+      const pdf = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      pdf.addImage(cv.toDataURL('image/jpeg', .93), 'JPEG', 0, 0, 210, 297);
+      hideToast(); await offer(name + '.pdf', pdf.output('blob'));
+    }
+  } catch (err) {
+    console.error(err); toast('書き出しに失敗しました。写真を外すか、ページを再読み込みしてからお試しください。', 5000);
+  } finally { btns.forEach(b => b.disabled = false); }
+}
+$('#pngBtn').onclick = () => exportAs('png');
+$('#pngTop').onclick = () => exportAs('png');
+$('#pdfBtn').onclick = () => exportAs('pdf');
+
+$('#saveJson').onclick = async () => {
+  const data = JSON.stringify({ app: 'shimen-kobo', v: 1, tpl: S.tpl, html: cleanHTML(), look: S.look[S.tpl] });
+  const name = `${TPL[S.tpl].file}_作業ファイル_${stamp()}.json`;
+  await offer(name, data);
+};
+$('#printBtn').onclick = () => { select(null); window.print(); };
+$('#openJson').onclick = () => $('#fileJson').click();
+$('#fileJson').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (d.app !== 'shimen-kobo' || !TPL[d.tpl]) throw 0;
+    const doc = new DOMParser().parseFromString(`<div>${d.html}</div>`, 'text/html');
+    doc.querySelectorAll('script,iframe,object,embed,link,meta,style').forEach(n => n.remove());
+    doc.querySelectorAll('*').forEach(n => [...n.attributes].forEach(a => { if (/^on/i.test(a.name)) n.removeAttribute(a.name); }));
+    S.tpl = d.tpl; S.docs[d.tpl] = doc.body.firstChild.innerHTML;
+    if (d.look && FONTS[d.look.font]) S.look[d.tpl] = { theme: d.look.theme, p: d.look.p, s: d.look.s, font: d.look.font };
+    hist = []; $('#undoBtn').disabled = true; persist(); render(); toast('作業ファイルを開きました');
+  } catch (err) { toast('紙面工房の作業ファイル（.json）を選んでください。'); }
+});
+$('#resetBtn').onclick = () => showModal({
+  title: 'この紙面を最初の状態に戻しますか？',
+  text: `「${TPL[S.tpl].name}」の文章・写真・色が見本の状態に戻ります。直後なら「元に戻す」で取り消せます。`,
+  actions: [{ label: 'やめる' }, { label: '最初の状態に戻す', primary: true, run: () => {
+    snapshot(); delete S.docs[S.tpl]; S.look[S.tpl] = lookFrom(TPL[S.tpl].look.theme, TPL[S.tpl].look.font);
+    const h = hist; persist(); render(); hist = h; $('#undoBtn').disabled = false;
+  } }]
+});
+
+/* ---------- 小物 ---------- */
+let toastT = 0;
+function toast(msg, ms = 2600) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(hideToast, ms); }
+function hideToast() { $('#toast').hidden = true; }
+function showModal({ title, text = '', body = '', actions }) {
+  $('#mTitle').textContent = title; $('#mText').textContent = text; $('#mBody').innerHTML = body;
+  const box = $('#mActions'); box.innerHTML = '';
+  actions.forEach(a => {
+    const b = document.createElement('button'); b.className = 'btn' + (a.primary ? ' primary' : ''); b.textContent = a.label;
+    b.onclick = () => { $('#modal').hidden = true; a.run && a.run(); };
+    box.appendChild(b);
+  });
+  $('#modal').hidden = false; box.lastChild.focus();
+}
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') $('#modal').hidden = true; });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') $('#modal').hidden = true; });
+
+render(); fit();
+
+/* オフラインでも使えるようにする（http/https で配信したときのみ有効） */
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
